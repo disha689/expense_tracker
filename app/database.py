@@ -4,7 +4,7 @@ DB_PATH = "expenses.db"
 
 
 def get_conn(db_path=None):
-    conn = sqlite3.connect(db_path or DB_PATH)
+    conn = sqlite3.connect(db_path or DB_PATH, check_same_thread=False)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

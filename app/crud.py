@@ -58,3 +58,9 @@ def delete_expense(conn, expense_id):
     with conn:
         cur = conn.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
     return cur.rowcount > 0
+
+def get_expense(conn, expense_id):
+    return conn.execute(
+        "SELECT id, date, category, amount, note FROM expenses WHERE id = ?",
+        (expense_id,),
+    ).fetchone()
