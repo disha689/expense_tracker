@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expense Tracker</title>
+<style>
+  :root {
+    --bg: #2b8ad6;
+    --panel: #ffffff;
+    --ink: #101a2b;
+    --muted: #6b7686;
+    --line: #e8edf3;
+    --sky1: #d9efff;
+    --sky2: #8fd0ff;
+    --accent: #1f7fd1;
+    --teal: #14b8b0;
+    --danger: #d9485f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 16px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  }
+  .panel {
+    max-width: 1000px; margin: 0 auto;
+    background: var(--panel); border-radius: 20px; padding: 32px;
+  }
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+  header h1 { font-size: 20px; margin: 0; font-weight: 700; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .panel { padding: 20px; } }
+
+  .total {
+    border-radius: 16px; padding: 24px;
+    background: linear-gradient(135deg, var(--sky1), var(--sky2));
+  }
+  .total small { color: #35567a; font-size: 14px; }
+  .total .amount { font-size: 40px; font-weight: 700; margin-top: 6px; }
+
+  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+  .card { border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .stack { display: grid; gap: 24px; align-content: start; }
+
+  .bar-row { display: grid; grid-template-columns: 90px 1fr 80px; gap: 10px; align-items: center; font-size: 14px; margin-bottom: 10px; }
+  .bar-row .track { background: #eef6fc; border-radius: 99px; height: 8px; overflow: hidden; }
+  .bar-row .fill { background: var(--teal); height: 100%; border-radius: 99px; }
+  .bar-row .val { text-align: right; color: var(--muted); }
+
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  form .wide { grid-column: 1 / -1; }
+  input {
+    font: inherit; padding: 10px 12px; border: 1px solid var(--line);
+    border-radius: 10px; width: 100%; color: var(--ink); background: #fff;
+  }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn {
+    font: inherit; font-weight: 600; border: 0; border-radius: 10px; cursor: pointer;
+    padding: 11px 14px; background: var(--accent); color: #fff;
+  }
+  .msg { font-size: 13px; color: var(--danger); min-height: 18px; margin: 8px 0 0; }
+
+  .cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .cal-head strong { font-size: 15px; }
+  .nav { background: none; border: 1px solid var(--line); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-size: 16px; color: var(--ink); }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+  .dow { font-size: 12px; color: var(--muted); padding: 4px 0; }
+  .day {
+    position: relative; aspect-ratio: 1; border: 0; background: none; border-radius: 10px;
+    font: inherit; font-size: 14px; cursor: pointer; color: var(--ink);
+  }
+  .day:hover { background: #f1f7fc; }
+  .day.today { box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .day.sel { background: var(--accent); color: #fff; }
+  .day.has::after {
+    content: ""; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+    width: 5px; height: 5px; border-radius: 50%; background: var(--teal);
+  }
+  .day.sel.has::after { background: #fff; }
+
+  .list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .clear { background: none; border: 0; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
+  .row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .title { font-weight: 600; font-size: 14px; }
+  .row .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .row .amt { font-weight: 600; }
+  .del { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; }
+  .del:hover { color: var(--danger); }
+  .empty { color: var(--muted); font-size: 14px; padding: 12px 0; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <header><h1>Expense Tracker</h1></header>
+
+  <div class="grid">
+    <div class="stack">
+      <div class="total">
+        <small id="monthLabel">This month</small>
+        <div class="amount" id="total">0</div>
+      </div>
+
+      <div class="card">
+        <h2>Add expense</h2>
+        <form id="form">
+          <input id="amount" type="number" step="0.01" min="0.01" placeholder="Amount" required>
+          <input id="category" placeholder="Category (food, travel)" required>
+          <input id="note" class="wide" placeholder="Note (optional)">
+          <input id="date" class="wide" type="date" required>
+          <button class="btn wide" type="submit">Add expense</button>
+        </form>
+        <p class="msg" id="msg"></p>
+      </div>
+
+      <div class="card">
+        <h2>By category</h2>
+        <div id="cats"></div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card">
+        <div class="cal-head">
+          <button class="nav" id="prev" aria-label="Previous month">&lsaquo;</button>
+          <strong id="calTitle"></strong>
+          <button class="nav" id="next" aria-label="Next month">&rsaquo;</button>
+        </div>
+        <div class="cal" id="cal"></div>
+      </div>
+
+      <div class="card">
+        <div class="list-head">
+          <h2 id="listTitle" style="margin:0">Expenses</h2>
+          <button class="clear" id="clear" hidden>Show whole month</button>
+        </div>
+        <div id="list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, "0");
+const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+const money = n => Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+const today = new Date();
+let year = today.getFullYear(), month = today.getMonth();
+let selected = null;
+let expenses = [];
+
+async function load() {
+  const key = `${year}-${pad(month + 1)}`;
+  const [eRes, sRes] = await Promise.all([
+    fetch(`/expenses?month=${key}`), fetch(`/summary?month=${key}`)
+  ]);
+  expenses = await eRes.json();
+  const summary = await sRes.json();
+  render(summary);
+}
+
+function render(summary) {
+  const label = new Date(year, month, 1).toLocaleString("en", { month: "long", year: "numeric" });
+  $("calTitle").textContent = label;
+  $("monthLabel").textContent = `Spent in ${label}`;
+  $("total").textContent = money(summary.total);
+
+  const cats = $("cats"); cats.replaceChildren();
+  if (!summary.by_category.length) cats.innerHTML = '<div class="empty">No expenses this month.</div>';
+  const max = Math.max(...summary.by_category.map(c => c.total), 1);
+  summary.by_category.forEach(c => {
+    const r = document.createElement("div"); r.className = "bar-row";
+    const n = document.createElement("span"); n.textContent = c.category;
+    const t = document.createElement("div"); t.className = "track";
+    const f = document.createElement("div"); f.className = "fill"; f.style.width = (c.total / max * 100) + "%";
+    t.append(f);
+    const v = document.createElement("span"); v.className = "val"; v.textContent = money(c.total);
+    r.append(n, t, v); cats.append(r);
+  });
+
+  renderCalendar();
+  renderList();
+}
+
+function renderCalendar() {
+  const cal = $("cal"); cal.replaceChildren();
+  ["S","M","T","W","T","F","S"].forEach(d => {
+    const e = document.createElement("div"); e.className = "dow"; e.textContent = d; cal.append(e);
+  });
+  const first = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const withSpend = new Set(expenses.map(e => e.date));
+  for (let i = 0; i < first; i++) cal.append(document.createElement("div"));
+  for (let d = 1; d <= days; d++) {
+    const key = iso(year, month, d);
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = d; b.className = "day";
+    if (withSpend.has(key)) b.classList.add("has");
+    if (key === iso(today.getFullYear(), today.getMonth(), today.getDate())) b.classList.add("today");
+    if (key === selected) b.classList.add("sel");
+    b.onclick = () => { selected = selected === key ? null : key; setFormDate(); renderCalendar(); renderList(); };
+    cal.append(b);
+  }
+}
+
+function renderList() {
+  const list = $("list"); list.replaceChildren();
+  const shown = selected ? expenses.filter(e => e.date === selected) : expenses;
+  $("listTitle").textContent = selected ? `Expenses on ${selected}` : "Expenses";
+  $("clear").hidden = !selected;
+  if (!shown.length) {
+    list.innerHTML = '<div class="empty">Nothing here yet. Add an expense above.</div>';
+    return;
+  }
+  shown.forEach(e => {
+    const row = document.createElement("div"); row.className = "row";
+    const left = document.createElement("div");
+    const t = document.createElement("div"); t.className = "title"; t.textContent = e.category;
+    const s = document.createElement("div"); s.className = "sub"; s.textContent = e.date + (e.note ? " · " + e.note : "");
+    left.append(t, s);
+    const a = document.createElement("div"); a.className = "amt"; a.textContent = money(e.amount);
+    const x = document.createElement("button"); x.className = "del"; x.textContent = "×"; x.title = "Delete expense";
+    x.onclick = async () => { await fetch(`/expenses/${e.id}`, { method: "DELETE" }); load(); };
+    row.append(left, a, x); list.append(row);
+  });
+}
+
+function setFormDate() {
+  $("date").value = selected || iso(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
+$("prev").onclick = () => { month--; if (month < 0) { month = 11; year--; } selected = null; load(); };
+$("next").onclick = () => { month++; if (month > 11) { month = 0; year++; } selected = null; load(); };
+$("clear").onclick = () => { selected = null; setFormDate(); renderCalendar(); renderList(); };
+
+$("form").onsubmit = async ev => {
+  ev.preventDefault();
+  $("msg").textContent = "";
+  const res = await fetch("/expenses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: parseFloat($("amount").value),
+      category: $("category").value.trim(),
+      note: $("note").value.trim(),
+      date: $("date").value
+    })
+  });
+  if (!res.ok) { $("msg").textContent = "Could not add expense. Check the amount and category."; return; }
+  const added = await res.json();
+  $("amount").value = ""; $("category").value = ""; $("note").value = "";
+  const [y, m] = added.date.split("-").map(Number);
+  year = y; month = m - 1;
+  load();
+};
+
+setFormDate();
+load();
+</script>
+</body>
+</html>

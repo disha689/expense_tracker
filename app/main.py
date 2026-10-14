@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from app import crud
 from app.database import get_conn
@@ -8,6 +10,7 @@ from app.schemas import ExpenseCreate, ExpenseOut, ExpenseUpdate
 
 app = FastAPI(title="Expense Tracker API")
 
+INDEX = Path(__file__).parent / "static" / "index.html"
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 
@@ -21,6 +24,11 @@ def get_db():
 
 def row_to_dict(r):
     return {"id": r[0], "date": r[1], "category": r[2], "amount": r[3], "note": r[4]}
+
+
+@app.get("/", include_in_schema=False)
+def home():
+    return FileResponse(INDEX)
 
 
 @app.post("/expenses", response_model=ExpenseOut, status_code=201)
