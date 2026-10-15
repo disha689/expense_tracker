@@ -6,81 +6,93 @@
 <title>Expense Tracker</title>
 <style>
   :root {
-    --bg: #2b8ad6;
-    --panel: #ffffff;
     --ink: #101a2b;
     --muted: #6b7686;
-    --line: #e8edf3;
-    --sky1: #d9efff;
-    --sky2: #8fd0ff;
+    --line: #e6ebf1;
     --accent: #1f7fd1;
-    --teal: #14b8b0;
+    --sky: #eaf5ff;
     --danger: #d9485f;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; border-radius: 0; }
+  html { scroll-behavior: smooth; }
   body {
-    margin: 0; padding: 32px 16px;
-    background: var(--bg);
-    color: var(--ink);
+    margin: 0; background: #fff; color: var(--ink);
     font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
   }
-  .panel {
-    max-width: 1000px; margin: 0 auto;
-    background: var(--panel); border-radius: 20px; padding: 32px;
-  }
-  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-  header h1 { font-size: 20px; margin: 0; font-weight: 700; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .panel { padding: 20px; } }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 
-  .total {
-    border-radius: 16px; padding: 24px;
-    background: linear-gradient(135deg, var(--sky1), var(--sky2));
+  nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
+  nav strong { font-size: 18px; }
+  .btn {
+    font: inherit; font-weight: 600; border: 0; cursor: pointer; text-decoration: none;
+    display: inline-block; padding: 12px 22px; background: var(--accent); color: #fff;
   }
+  .btn.ghost { background: #fff; color: var(--ink); border: 1px solid var(--ink); }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; padding: 48px 0 72px; }
+  .hero h1 { font-size: 52px; line-height: 1.08; margin: 0 0 18px; letter-spacing: -0.02em; }
+  .hero p { font-size: 18px; color: var(--muted); max-width: 440px; margin: 0 0 28px; line-height: 1.5; }
+  .hero .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* phone mockup (our own, shows live data) */
+  .phone-wrap { display: flex; justify-content: center; background: var(--sky); padding: 36px 0 0; }
+  .phone {
+    width: 250px; height: 420px; background: #fff; border: 8px solid #101a2b;
+    border-bottom: 0; border-radius: 34px 34px 0 0; padding: 22px 16px; overflow: hidden;
+  }
+  .phone .notch { width: 70px; height: 16px; background: #101a2b; margin: -14px auto 14px; border-radius: 0 0 12px 12px; }
+  .phone small { color: var(--muted); font-size: 11px; }
+  .phone .ptotal { font-size: 28px; font-weight: 700; margin: 2px 0 14px; }
+  .phone .pcard { border: 1px solid var(--line); padding: 12px; display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+  .phone .mini { font-size: 11px; color: var(--muted); }
+  .phone .mini div { display: flex; align-items: center; gap: 6px; margin: 3px 0; color: var(--ink); }
+
+  .donut { border-radius: 50% !important; position: relative; flex: none; background: #e6ebf1; }
+  .donut::after { content: ""; position: absolute; inset: 25%; background: #fff; border-radius: 50%; }
+  .dot { width: 8px; height: 8px; display: inline-block; flex: none; }
+
+  /* intro strip */
+  .strip { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding: 32px 0 56px; }
+  .strip img { width: 100%; height: auto; display: block; }
+  .strip h2 { font-size: 30px; margin: 0 0 12px; letter-spacing: -0.01em; }
+  .strip p { color: var(--muted); line-height: 1.6; margin: 0; max-width: 420px; }
+
+  /* dashboard */
+  #app { padding: 24px 0 72px; scroll-margin-top: 8px; }
+  #app > h2 { font-size: 26px; margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .stack { display: grid; gap: 24px; align-content: start; }
+  .card { border: 1px solid var(--line); padding: 20px; }
+  .card h3 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+  .total { padding: 24px; background: var(--sky); }
   .total small { color: #35567a; font-size: 14px; }
   .total .amount { font-size: 40px; font-weight: 700; margin-top: 6px; }
 
-  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
-  .card { border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
-  .stack { display: grid; gap: 24px; align-content: start; }
-
-  .bar-row { display: grid; grid-template-columns: 90px 1fr 80px; gap: 10px; align-items: center; font-size: 14px; margin-bottom: 10px; }
-  .bar-row .track { background: #eef6fc; border-radius: 99px; height: 8px; overflow: hidden; }
-  .bar-row .fill { background: var(--teal); height: 100%; border-radius: 99px; }
-  .bar-row .val { text-align: right; color: var(--muted); }
+  .pie { display: flex; gap: 20px; align-items: center; }
+  .legend { flex: 1; font-size: 14px; }
+  .legend div { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .legend .v { margin-left: auto; color: var(--muted); }
 
   form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  form .wide { grid-column: 1 / -1; }
-  input {
-    font: inherit; padding: 10px 12px; border: 1px solid var(--line);
-    border-radius: 10px; width: 100%; color: var(--ink); background: #fff;
-  }
-  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .btn {
-    font: inherit; font-weight: 600; border: 0; border-radius: 10px; cursor: pointer;
-    padding: 11px 14px; background: var(--accent); color: #fff;
-  }
+  .wide { grid-column: 1 / -1; }
+  input { font: inherit; padding: 10px 12px; border: 1px solid #cfd8e3; width: 100%; color: var(--ink); background: #fff; }
   .msg { font-size: 13px; color: var(--danger); min-height: 18px; margin: 8px 0 0; }
 
   .cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .cal-head strong { font-size: 15px; }
-  .nav { background: none; border: 1px solid var(--line); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-size: 16px; color: var(--ink); }
+  .nav { background: #fff; border: 1px solid var(--line); width: 32px; height: 32px; cursor: pointer; font-size: 16px; color: var(--ink); }
   .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
   .dow { font-size: 12px; color: var(--muted); padding: 4px 0; }
-  .day {
-    position: relative; aspect-ratio: 1; border: 0; background: none; border-radius: 10px;
-    font: inherit; font-size: 14px; cursor: pointer; color: var(--ink);
-  }
+  .day { position: relative; aspect-ratio: 1; border: 0; background: none; font: inherit; font-size: 14px; cursor: pointer; color: var(--ink); }
   .day:hover { background: #f1f7fc; }
   .day.today { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .day.sel { background: var(--accent); color: #fff; }
-  .day.has::after {
-    content: ""; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
-    width: 5px; height: 5px; border-radius: 50%; background: var(--teal);
-  }
+  .day.has::after { content: ""; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; background: #14b8b0; }
   .day.sel.has::after { background: #fff; }
 
   .list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .list-head h3 { margin: 0; }
   .clear { background: none; border: 0; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
   .row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
   .row:last-child { border-bottom: 0; }
@@ -89,64 +101,127 @@
   .row .amt { font-weight: 600; }
   .del { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; }
   .del:hover { color: var(--danger); }
-  .empty { color: var(--muted); font-size: 14px; padding: 12px 0; }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+
+  /* closing section with faded illustration as background */
+  .closing { position: relative; overflow: hidden; text-align: center; padding: 96px 24px; border-top: 1px solid var(--line); }
+  .closing::before {
+    content: ""; position: absolute; inset: 0;
+    background: url("/static/illustration2.png") center / contain no-repeat; opacity: 0.1;
+  }
+  .closing > * { position: relative; }
+  .closing h2 { font-size: 34px; margin: 0 0 20px; letter-spacing: -0.01em; }
+
+  @media (max-width: 800px) {
+    .hero, .strip, .grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 38px; }
+  }
 </style>
 </head>
 <body>
-<div class="panel">
-  <header><h1>Expense Tracker</h1></header>
+<div class="wrap">
+  <nav>
+    <strong>Expense Tracker</strong>
+    <a class="btn" href="#app">Add expense</a>
+  </nav>
 
-  <div class="grid">
-    <div class="stack">
-      <div class="total">
-        <small id="monthLabel">This month</small>
-        <div class="amount" id="total">0</div>
-      </div>
-
-      <div class="card">
-        <h2>Add expense</h2>
-        <form id="form">
-          <input id="amount" type="number" step="0.01" min="0.01" placeholder="Amount" required>
-          <input id="category" placeholder="Category (food, travel)" required>
-          <input id="note" class="wide" placeholder="Note (optional)">
-          <input id="date" class="wide" type="date" required>
-          <button class="btn wide" type="submit">Add expense</button>
-        </form>
-        <p class="msg" id="msg"></p>
-      </div>
-
-      <div class="card">
-        <h2>By category</h2>
-        <div id="cats"></div>
+  <section class="hero">
+    <div>
+      <h1>Meet the tracker that shows where your money goes.</h1>
+      <p>Log every expense in seconds, see it on a calendar, and spot your biggest categories at a glance.</p>
+      <div class="actions">
+        <a class="btn" href="#app">Start tracking</a>
+        <a class="btn ghost" href="#app">View this month</a>
       </div>
     </div>
-
-    <div class="stack">
-      <div class="card">
-        <div class="cal-head">
-          <button class="nav" id="prev" aria-label="Previous month">&lsaquo;</button>
-          <strong id="calTitle"></strong>
-          <button class="nav" id="next" aria-label="Next month">&rsaquo;</button>
+    <div class="phone-wrap">
+      <div class="phone" aria-hidden="true">
+        <div class="notch"></div>
+        <small id="pLabel">This month</small>
+        <div class="ptotal" id="pTotal">0</div>
+        <div class="pcard">
+          <div class="donut" id="pDonut" style="width:76px;height:76px"></div>
+          <div class="mini" id="pLegend"></div>
         </div>
-        <div class="cal" id="cal"></div>
-      </div>
-
-      <div class="card">
-        <div class="list-head">
-          <h2 id="listTitle" style="margin:0">Expenses</h2>
-          <button class="clear" id="clear" hidden>Show whole month</button>
+        <div class="pcard" style="display:block">
+          <small>Latest</small>
+          <div id="pLatest" style="font-size:13px;margin-top:4px">No expenses yet</div>
         </div>
-        <div id="list"></div>
       </div>
     </div>
-  </div>
+  </section>
+
+  <section class="strip">
+    <img src="/static/illustration1.png" alt="Calculator, money bag and a person noting down expenses">
+    <div>
+      <h2>Every expense in one place</h2>
+      <p>Pick a date on the calendar, add what you spent, and your totals update straight away.</p>
+    </div>
+  </section>
+
+  <section id="app">
+    <h2>Your expenses</h2>
+    <div class="grid">
+      <div class="stack">
+        <div class="total">
+          <small id="monthLabel">This month</small>
+          <div class="amount" id="total">0</div>
+        </div>
+
+        <div class="card">
+          <h3>Add expense</h3>
+          <form id="form">
+            <input id="amount" type="number" step="0.01" min="0.01" placeholder="Amount" required>
+            <input id="category" placeholder="Category (food, travel)" required>
+            <input id="note" class="wide" placeholder="Note (optional)">
+            <input id="date" class="wide" type="date" required>
+            <button class="btn wide" type="submit">Add expense</button>
+          </form>
+          <p class="msg" id="msg"></p>
+        </div>
+
+        <div class="card">
+          <h3>By category</h3>
+          <div class="pie">
+            <div class="donut" id="donut" style="width:140px;height:140px"></div>
+            <div class="legend" id="legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="cal-head">
+            <button class="nav" id="prev" aria-label="Previous month">&lsaquo;</button>
+            <strong id="calTitle"></strong>
+            <button class="nav" id="next" aria-label="Next month">&rsaquo;</button>
+          </div>
+          <div class="cal" id="cal"></div>
+        </div>
+
+        <div class="card">
+          <div class="list-head">
+            <h3 id="listTitle">Expenses</h3>
+            <button class="clear" id="clear" hidden>Show whole month</button>
+          </div>
+          <div id="list"></div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
+
+<section class="closing">
+  <h2>Small expenses add up. Track them today.</h2>
+  <a class="btn" href="#app">Add your first expense</a>
+</section>
 
 <script>
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, "0");
 const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const money = n => Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+const COLORS = ["#1f7fd1", "#14b8b0", "#8fd0ff", "#f5a524", "#e5576b", "#7b61ff"];
 
 const today = new Date();
 let year = today.getFullYear(), month = today.getMonth();
@@ -155,12 +230,32 @@ let expenses = [];
 
 async function load() {
   const key = `${year}-${pad(month + 1)}`;
-  const [eRes, sRes] = await Promise.all([
-    fetch(`/expenses?month=${key}`), fetch(`/summary?month=${key}`)
-  ]);
+  const [eRes, sRes] = await Promise.all([fetch(`/expenses?month=${key}`), fetch(`/summary?month=${key}`)]);
   expenses = await eRes.json();
-  const summary = await sRes.json();
-  render(summary);
+  render(await sRes.json());
+}
+
+function drawPie(donutEl, legendEl, cats, total, small) {
+  legendEl.replaceChildren();
+  if (!cats.length || total <= 0) {
+    donutEl.style.background = "#e6ebf1";
+    legendEl.innerHTML = '<div class="empty">No data yet</div>';
+    return;
+  }
+  let acc = 0;
+  const stops = cats.map((c, i) => {
+    const start = acc / total * 100; acc += c.total;
+    return `${COLORS[i % COLORS.length]} ${start}% ${acc / total * 100}%`;
+  });
+  donutEl.style.background = `conic-gradient(${stops.join(",")})`;
+  cats.forEach((c, i) => {
+    const d = document.createElement("div");
+    const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = COLORS[i % COLORS.length];
+    const n = document.createElement("span"); n.textContent = c.category;
+    d.append(dot, n);
+    if (!small) { const v = document.createElement("span"); v.className = "v"; v.textContent = money(c.total); d.append(v); }
+    legendEl.append(d);
+  });
 }
 
 function render(summary) {
@@ -168,20 +263,12 @@ function render(summary) {
   $("calTitle").textContent = label;
   $("monthLabel").textContent = `Spent in ${label}`;
   $("total").textContent = money(summary.total);
-
-  const cats = $("cats"); cats.replaceChildren();
-  if (!summary.by_category.length) cats.innerHTML = '<div class="empty">No expenses this month.</div>';
-  const max = Math.max(...summary.by_category.map(c => c.total), 1);
-  summary.by_category.forEach(c => {
-    const r = document.createElement("div"); r.className = "bar-row";
-    const n = document.createElement("span"); n.textContent = c.category;
-    const t = document.createElement("div"); t.className = "track";
-    const f = document.createElement("div"); f.className = "fill"; f.style.width = (c.total / max * 100) + "%";
-    t.append(f);
-    const v = document.createElement("span"); v.className = "val"; v.textContent = money(c.total);
-    r.append(n, t, v); cats.append(r);
-  });
-
+  $("pLabel").textContent = label;
+  $("pTotal").textContent = money(summary.total);
+  drawPie($("donut"), $("legend"), summary.by_category, summary.total, false);
+  drawPie($("pDonut"), $("pLegend"), summary.by_category.slice(0, 4), summary.total, true);
+  const latest = expenses[0];
+  $("pLatest").textContent = latest ? `${latest.category} · ${money(latest.amount)}` : "No expenses yet";
   renderCalendar();
   renderList();
 }
@@ -194,13 +281,14 @@ function renderCalendar() {
   const first = new Date(year, month, 1).getDay();
   const days = new Date(year, month + 1, 0).getDate();
   const withSpend = new Set(expenses.map(e => e.date));
+  const todayKey = iso(today.getFullYear(), today.getMonth(), today.getDate());
   for (let i = 0; i < first; i++) cal.append(document.createElement("div"));
   for (let d = 1; d <= days; d++) {
     const key = iso(year, month, d);
     const b = document.createElement("button");
     b.type = "button"; b.textContent = d; b.className = "day";
     if (withSpend.has(key)) b.classList.add("has");
-    if (key === iso(today.getFullYear(), today.getMonth(), today.getDate())) b.classList.add("today");
+    if (key === todayKey) b.classList.add("today");
     if (key === selected) b.classList.add("sel");
     b.onclick = () => { selected = selected === key ? null : key; setFormDate(); renderCalendar(); renderList(); };
     cal.append(b);
@@ -212,10 +300,7 @@ function renderList() {
   const shown = selected ? expenses.filter(e => e.date === selected) : expenses;
   $("listTitle").textContent = selected ? `Expenses on ${selected}` : "Expenses";
   $("clear").hidden = !selected;
-  if (!shown.length) {
-    list.innerHTML = '<div class="empty">Nothing here yet. Add an expense above.</div>';
-    return;
-  }
+  if (!shown.length) { list.innerHTML = '<div class="empty">Nothing here yet. Add an expense.</div>'; return; }
   shown.forEach(e => {
     const row = document.createElement("div"); row.className = "row";
     const left = document.createElement("div");

@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import crud
 from app.database import get_conn
@@ -10,8 +11,11 @@ from app.schemas import ExpenseCreate, ExpenseOut, ExpenseUpdate
 
 app = FastAPI(title="Expense Tracker API")
 
-INDEX = Path(__file__).parent / "static" / "index.html"
+STATIC_DIR = Path(__file__).parent / "static"
+INDEX = STATIC_DIR / "index.html"
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 def get_db():
