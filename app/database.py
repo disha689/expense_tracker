@@ -14,4 +14,10 @@ def get_conn(db_path=None):
             date TEXT NOT NULL
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS budgets (
+            month TEXT PRIMARY KEY,
+            amount REAL NOT NULL
+        )
+    """)
     return conn

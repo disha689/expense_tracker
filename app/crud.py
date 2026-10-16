@@ -59,8 +59,29 @@ def delete_expense(conn, expense_id):
         cur = conn.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
     return cur.rowcount > 0
 
+
 def get_expense(conn, expense_id):
     return conn.execute(
         "SELECT id, date, category, amount, note FROM expenses WHERE id = ?",
         (expense_id,),
     ).fetchone()
+
+
+def set_budget(conn, month, amount):
+    if amount < 0:
+        raise ValueError("Budget cannot be negative")
+    with conn:
+        conn.execute(
+            "INSERT INTO budgets (month, amount) VALUES (?, ?) "
+            "ON CONFLICT(month) DO UPDATE SET amount = excluded.amount",
+            (month, amount),
+        )
+
+
+def get_budget(conn, month):
+    """Budget for a month. If none is set, the latest earlier month's budget carries forward."""
+    row = conn.execute(
+        "SELECT amount FROM budgets WHERE month <= ? ORDER BY month DESC LIMIT 1",
+        (month,),
+    ).fetchone()
+    return row[0] if row else 0

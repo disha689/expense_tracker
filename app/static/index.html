@@ -89,6 +89,11 @@
     box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(16,26,43,.25);
   }
   .plain { padding: 4px 0; }
+  .edit { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; }
+  .edit:hover { color: var(--accent); }
+  a.clear { text-decoration: none; }
+  .tools { display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .importmsg { font-size: 13px; margin: 8px 0 0; color: var(--muted); }
 
   /* intro strip */
   .strip { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding: 32px 0 56px; }
@@ -131,7 +136,7 @@
   .list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .list-head h3 { margin: 0; }
   .clear { background: none; border: 0; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
-  .row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
   .row:last-child { border-bottom: 0; }
   .row .title { font-weight: 600; font-size: 14px; }
   .row .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -233,7 +238,7 @@
         </div>
 
         <div class="card">
-          <h3>Add expense</h3>
+          <h3 id="formTitle">Add expense</h3>
           <button type="button" class="scanbtn" id="scanBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             Scan a bill or receipt
@@ -252,7 +257,8 @@
             <input id="category" placeholder="Category (food, travel)" required>
             <input id="note" class="wide" placeholder="Note (optional)">
             <input id="date" class="wide" type="date" required>
-            <button class="btn wide" type="submit">Add expense</button>
+            <button class="btn wide" type="submit" id="submitBtn">Add expense</button>
+            <button class="btn ghost wide" type="button" id="cancelEdit" hidden>Cancel edit</button>
           </form>
           <p class="msg" id="msg"></p>
         </div>
@@ -282,6 +288,12 @@
             <button class="clear" id="clear" hidden>Show whole month</button>
           </div>
           <div id="list"></div>
+          <div class="tools">
+            <a class="clear" id="exportLink" href="/export.csv" title="Downloads the month shown">Export CSV</a>
+            <button class="clear" id="importBtn" type="button">Import CSV</button>
+            <input id="csvFile" type="file" accept=".csv,text/csv" hidden>
+          </div>
+          <p class="importmsg" id="importMsg"></p>
         </div>
       </div>
     </div>
@@ -313,7 +325,6 @@ const STATE_UI = {
   over: { bar: "#d9485f", card: "#fdecef" }
 };
 let budget = 0;
-try { budget = parseFloat(localStorage.getItem("budget")) || 0; } catch (e) {}
 function budgetState(spent) {
   if (!budget) return "ok";
   const p = spent / budget;
@@ -327,8 +338,13 @@ let expenses = [];
 
 async function load() {
   const key = `${year}-${pad(month + 1)}`;
-  const [eRes, sRes] = await Promise.all([fetch(`/expenses?month=${key}`), fetch(`/summary?month=${key}`)]);
+  const [eRes, sRes, bRes] = await Promise.all([
+    fetch(`/expenses?month=${key}`), fetch(`/summary?month=${key}`), fetch(`/budget?month=${key}`)
+  ]);
   expenses = await eRes.json();
+  budget = (await bRes.json()).amount || 0;
+  if (document.activeElement !== $("budgetInput")) $("budgetInput").value = budget || "";
+  $("exportLink").href = `/export.csv?month=${key}`;
   render(await sRes.json());
 }
 
@@ -423,8 +439,14 @@ function renderList() {
     left.append(t, s);
     const a = document.createElement("div"); a.className = "amt"; a.textContent = money(e.amount);
     const x = document.createElement("button"); x.className = "del"; x.textContent = "×"; x.title = "Delete expense";
-    x.onclick = async () => { await fetch(`/expenses/${e.id}`, { method: "DELETE" }); load(); };
-    row.append(left, a, x); list.append(row);
+    const ed = document.createElement("button"); ed.className = "edit"; ed.textContent = "\u270E"; ed.title = "Edit expense";
+    ed.onclick = () => startEdit(e);
+    x.onclick = async () => {
+      await fetch(`/expenses/${e.id}`, { method: "DELETE" });
+      if (editingId === e.id) resetForm();
+      load();
+    };
+    row.append(left, a, ed, x); list.append(row);
   });
 }
 
@@ -436,11 +458,38 @@ $("prev").onclick = () => { month--; if (month < 0) { month = 11; year--; } sele
 $("next").onclick = () => { month++; if (month > 11) { month = 0; year++; } selected = null; load(); };
 $("clear").onclick = () => { selected = null; setFormDate(); renderCalendar(); renderList(); };
 
+let editingId = null;
+
+function startEdit(e) {
+  editingId = e.id;
+  $("amount").value = e.amount;
+  $("category").value = e.category;
+  $("note").value = e.note || "";
+  $("date").value = e.date;
+  $("formTitle").textContent = "Edit expense";
+  $("submitBtn").textContent = "Save changes";
+  $("cancelEdit").hidden = false;
+  $("msg").textContent = "";
+  $("form").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("amount").focus();
+}
+
+function resetForm() {
+  editingId = null;
+  $("amount").value = ""; $("category").value = ""; $("note").value = "";
+  setFormDate();
+  $("formTitle").textContent = "Add expense";
+  $("submitBtn").textContent = "Add expense";
+  $("cancelEdit").hidden = true;
+}
+$("cancelEdit").onclick = resetForm;
+
 $("form").onsubmit = async ev => {
   ev.preventDefault();
   $("msg").textContent = "";
-  const res = await fetch("/expenses", {
-    method: "POST",
+  const isEdit = editingId !== null;
+  const res = await fetch(isEdit ? `/expenses/${editingId}` : "/expenses", {
+    method: isEdit ? "PUT" : "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       amount: parseFloat($("amount").value),
@@ -449,9 +498,10 @@ $("form").onsubmit = async ev => {
       date: $("date").value
     })
   });
-  if (!res.ok) { $("msg").textContent = "Could not add expense. Check the amount and category."; return; }
+  if (!res.ok) { $("msg").textContent = isEdit ? "Could not save changes. Check the amount and category." : "Could not add expense. Check the amount and category."; return; }
   const added = await res.json();
-  $("amount").value = ""; $("category").value = ""; $("note").value = "";
+  if (isEdit) selected = null;
+  resetForm();
   const [y, m] = added.date.split("-").map(Number);
   year = y; month = m - 1;
   load();
@@ -544,11 +594,42 @@ $("bill").onchange = async () => {
   $("bill").value = "";
 };
 
-$("budgetInput").value = budget || "";
-$("budgetSave").onclick = () => {
-  budget = parseFloat($("budgetInput").value) || 0;
-  try { localStorage.setItem("budget", budget); } catch (e) {}
+$("budgetSave").onclick = async () => {
+  const key = `${year}-${pad(month + 1)}`;
+  const amount = parseFloat($("budgetInput").value) || 0;
+  const res = await fetch("/budget", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ month: key, amount })
+  });
+  if (!res.ok) { $("bStatus").textContent = "Could not save the budget."; return; }
   load();
+};
+
+$("importBtn").onclick = () => $("csvFile").click();
+$("csvFile").onchange = async () => {
+  const file = $("csvFile").files[0];
+  if (!file) return;
+  const msg = $("importMsg");
+  msg.style.color = "";
+  msg.textContent = "Importing...";
+  try {
+    const res = await fetch("/import", { method: "POST", headers: { "Content-Type": "text/csv" }, body: await file.text() });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.style.color = "#d9485f";
+      msg.textContent = typeof data.detail === "string" ? data.detail : "Import failed.";
+    } else {
+      const first = data.skipped[0];
+      msg.textContent = `Imported ${data.imported} expense(s)` +
+        (data.skipped_count ? `, skipped ${data.skipped_count} (first problem: row ${first.row}, ${first.reason}).` : ".");
+      load();
+    }
+  } catch (e) {
+    msg.style.color = "#d9485f";
+    msg.textContent = "Import failed. Is the server running?";
+  }
+  $("csvFile").value = "";
 };
 
 setFormDate();

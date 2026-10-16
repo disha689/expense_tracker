@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
+
 
 class ExpenseCreate(BaseModel):
     amount: float = Field(gt=0)
@@ -24,3 +26,13 @@ class ExpenseOut(BaseModel):
     category: str
     amount: float
     note: Optional[str] = None
+
+
+class BudgetIn(BaseModel):
+    month: str = Field(pattern=MONTH_PATTERN)
+    amount: float = Field(ge=0)
+
+
+class BudgetOut(BaseModel):
+    month: str
+    amount: float
