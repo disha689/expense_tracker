@@ -89,6 +89,13 @@
     box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(16,26,43,.25);
   }
   .plain { padding: 4px 0; }
+  .rc-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .rc-form .wide { grid-column: 1 / -1; }
+  .rc-hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  .rc-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .rc-row:last-child { border-bottom: 0; }
+  .rc-row .title { font-weight: 600; font-size: 14px; }
+  .rc-row .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .cb { margin-top: 28px; }
   .cb-form { display: grid; grid-template-columns: 1fr 110px auto; gap: 8px; margin-bottom: 6px; }
   .cb-form .btn { padding: 10px 14px; }
@@ -320,6 +327,21 @@
           </div>
           <p class="importmsg" id="importMsg"></p>
         </div>
+
+        <div class="card">
+          <h3>Recurring expenses</h3>
+          <form class="rc-form" id="rcForm">
+            <input id="rcAmount" type="number" step="0.01" min="0.01" placeholder="Amount" required>
+            <input id="rcCategory" placeholder="Category (rent, wifi)" required>
+            <input id="rcDay" type="number" min="1" max="31" placeholder="Day of month (1-31)" required>
+            <input id="rcStart" type="month" title="Starts from" required>
+            <input id="rcNote" class="wide" placeholder="Note (optional)">
+            <button class="btn wide" type="submit">Add recurring expense</button>
+          </form>
+          <p class="msg" id="rcMsg"></p>
+          <div id="rcList"></div>
+          <p class="rc-hint">Added automatically on the chosen day every month, when you open this page. Stopping one keeps the expenses it already added.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -351,6 +373,7 @@ const STATE_UI = {
 };
 let budget = 0;
 let catBudgets = [];
+let recurring = [];
 function budgetState(spent) {
   if (!budget) return "ok";
   const p = spent / budget;
@@ -364,13 +387,14 @@ let expenses = [];
 
 async function load() {
   const key = `${year}-${pad(month + 1)}`;
-  const [eRes, sRes, bRes, cRes] = await Promise.all([
+  const [eRes, sRes, bRes, cRes, rRes] = await Promise.all([
     fetch(`/expenses?month=${key}`), fetch(`/summary?month=${key}`),
-    fetch(`/budget?month=${key}`), fetch(`/category-budgets?month=${key}`)
+    fetch(`/budget?month=${key}`), fetch(`/category-budgets?month=${key}`), fetch("/recurring")
   ]);
   expenses = await eRes.json();
   budget = (await bRes.json()).amount || 0;
   catBudgets = (await cRes.json()).budgets;
+  recurring = await rRes.json();
   if (document.activeElement !== $("budgetInput")) $("budgetInput").value = budget || "";
   $("exportLink").href = `/export.csv?month=${key}`;
   render(await sRes.json());
@@ -430,6 +454,7 @@ function render(summary) {
   renderCalendar();
   renderList();
   renderCatBudgets(summary);
+  renderRecurring();
 }
 
 function renderCalendar() {
@@ -703,6 +728,50 @@ $("cbForm").onsubmit = async ev => {
   if (await saveCatBudget(category, amount)) { $("cbCat").value = ""; $("cbAmt").value = ""; }
 };
 
+function renderRecurring() {
+  const box = $("rcList"); box.replaceChildren();
+  if (!recurring.length) { box.innerHTML = '<div class="empty">No recurring expenses yet.</div>'; return; }
+  recurring.forEach(r => {
+    const row = document.createElement("div"); row.className = "rc-row";
+    const left = document.createElement("div");
+    const t = document.createElement("div"); t.className = "title";
+    t.textContent = `${emojiFor(r.category)} ${r.category} \u00B7 ${money(r.amount)}`;
+    const s = document.createElement("div"); s.className = "sub";
+    s.textContent = `Every month on day ${r.day}, from ${r.start_month}` + (r.note ? " \u00B7 " + r.note : "");
+    left.append(t, s);
+    const x = document.createElement("button"); x.className = "del"; x.type = "button";
+    x.textContent = "\u00D7"; x.title = "Stop this recurring expense";
+    x.onclick = async () => { await fetch(`/recurring/${r.id}`, { method: "DELETE" }); load(); };
+    row.append(left, x); box.append(row);
+  });
+}
+
+$("rcForm").onsubmit = async ev => {
+  ev.preventDefault();
+  $("rcMsg").style.color = "";
+  $("rcMsg").textContent = "";
+  const res = await fetch("/recurring", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: parseFloat($("rcAmount").value),
+      category: $("rcCategory").value.trim(),
+      note: $("rcNote").value.trim(),
+      day: parseInt($("rcDay").value, 10),
+      start_month: $("rcStart").value
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    $("rcMsg").textContent = typeof data.detail === "string" ? data.detail : "Check the amount, category, day and start month.";
+    return;
+  }
+  $("rcAmount").value = ""; $("rcCategory").value = ""; $("rcDay").value = ""; $("rcNote").value = "";
+  $("rcMsg").style.color = "var(--muted)";
+  $("rcMsg").textContent = data.created ? `Added. ${data.created} expense(s) created so far.` : "Added. The first expense will appear on its day.";
+  load();
+};
+
 $("importBtn").onclick = () => $("csvFile").click();
 $("csvFile").onchange = async () => {
   const file = $("csvFile").files[0];
@@ -729,8 +798,10 @@ $("csvFile").onchange = async () => {
   $("csvFile").value = "";
 };
 
+$("rcStart").value = iso(today.getFullYear(), today.getMonth(), 1).slice(0, 7);
+
 setFormDate();
-load();
+fetch("/recurring/apply", { method: "POST" }).then(load, load);
 </script>
 </body>
 </html>
