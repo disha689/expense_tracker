@@ -36,3 +36,40 @@ class BudgetIn(BaseModel):
 class BudgetOut(BaseModel):
     month: str
     amount: float
+
+
+class CategoryBudgetIn(BaseModel):
+    month: str = Field(pattern=MONTH_PATTERN)
+    category: str = Field(min_length=1, max_length=100)
+    amount: float = Field(ge=0)
+
+
+class CategoryBudgetItem(BaseModel):
+    category: str
+    amount: float
+
+
+class CategoryBudgetsOut(BaseModel):
+    month: str
+    budgets: list[CategoryBudgetItem]
+
+
+class RecurringCreate(BaseModel):
+    amount: float = Field(gt=0)
+    category: str = Field(min_length=1, max_length=100)
+    note: str = Field(default="", max_length=500)
+    day: int = Field(ge=1, le=31)
+    start_month: Optional[str] = Field(default=None, pattern=MONTH_PATTERN)
+
+
+class RecurringOut(BaseModel):
+    id: int
+    amount: float
+    category: str
+    note: str
+    day: int
+    start_month: str
+
+
+class RecurringCreatedOut(RecurringOut):
+    created: int

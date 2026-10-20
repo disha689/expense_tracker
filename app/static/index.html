@@ -89,6 +89,18 @@
     box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(16,26,43,.25);
   }
   .plain { padding: 4px 0; }
+  .cb { margin-top: 28px; }
+  .cb-form { display: grid; grid-template-columns: 1fr 110px auto; gap: 8px; margin-bottom: 6px; }
+  .cb-form .btn { padding: 10px 14px; }
+  .cb-alert { font-size: 13px; color: #d9485f; margin: 10px 0 0; }
+  .cb-row { margin: 14px 0; }
+  .cb-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+  .cb-top .sp { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .cb-bar { height: 8px; background: #eef2f6; border-radius: 99px; overflow: hidden; margin: 6px 0 2px; }
+  .cb-fill { height: 100%; border-radius: 99px; transition: width .3s, background .3s; }
+  .cb-status { font-size: 12px; color: var(--muted); }
+  .cb-del { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; }
+  .cb-del:hover { color: var(--danger); }
   .edit { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; }
   .edit:hover { color: var(--accent); }
   a.clear { text-decoration: none; }
@@ -269,6 +281,19 @@
             <div class="donut" id="donut" style="width:140px;height:140px"></div>
             <div class="legend" id="legend"></div>
           </div>
+
+          <div class="cb">
+            <h3>Category budgets</h3>
+            <form class="cb-form" id="cbForm">
+              <input id="cbCat" list="catList" placeholder="Category (e.g. food)" required>
+              <input id="cbAmt" type="number" min="0" step="100" placeholder="Budget" required>
+              <button class="btn" type="submit">Set</button>
+            </form>
+            <datalist id="catList"></datalist>
+            <p class="msg" id="cbMsg"></p>
+            <p class="cb-alert" id="cbAlert"></p>
+            <div id="cbList"></div>
+          </div>
         </div>
       </div>
 
@@ -325,6 +350,7 @@ const STATE_UI = {
   over: { bar: "#d9485f", card: "#fdecef" }
 };
 let budget = 0;
+let catBudgets = [];
 function budgetState(spent) {
   if (!budget) return "ok";
   const p = spent / budget;
@@ -338,11 +364,13 @@ let expenses = [];
 
 async function load() {
   const key = `${year}-${pad(month + 1)}`;
-  const [eRes, sRes, bRes] = await Promise.all([
-    fetch(`/expenses?month=${key}`), fetch(`/summary?month=${key}`), fetch(`/budget?month=${key}`)
+  const [eRes, sRes, bRes, cRes] = await Promise.all([
+    fetch(`/expenses?month=${key}`), fetch(`/summary?month=${key}`),
+    fetch(`/budget?month=${key}`), fetch(`/category-budgets?month=${key}`)
   ]);
   expenses = await eRes.json();
   budget = (await bRes.json()).amount || 0;
+  catBudgets = (await cRes.json()).budgets;
   if (document.activeElement !== $("budgetInput")) $("budgetInput").value = budget || "";
   $("exportLink").href = `/export.csv?month=${key}`;
   render(await sRes.json());
@@ -401,6 +429,7 @@ function render(summary) {
   $("pEmoji").textContent = emojiFor(latest ? latest.category : "");
   renderCalendar();
   renderList();
+  renderCatBudgets(summary);
 }
 
 function renderCalendar() {
@@ -604,6 +633,74 @@ $("budgetSave").onclick = async () => {
   });
   if (!res.ok) { $("bStatus").textContent = "Could not save the budget."; return; }
   load();
+};
+
+function renderCatBudgets(summary) {
+  const spent = {};
+  summary.by_category.forEach(c => {
+    const k = c.category.trim().toLowerCase();
+    spent[k] = (spent[k] || 0) + c.total;
+  });
+  $("catList").replaceChildren(...Object.keys(spent).map(c => {
+    const o = document.createElement("option"); o.value = c; return o;
+  }));
+
+  const box = $("cbList"); box.replaceChildren();
+  if (!catBudgets.length) {
+    box.innerHTML = '<div class="empty">No category budgets yet. Add one above.</div>';
+    $("cbAlert").textContent = "";
+    return;
+  }
+  const over = [];
+  catBudgets.forEach(b => {
+    const sp = spent[b.category] || 0;
+    const ratio = sp / b.amount;
+    const st = ratio > 1 ? "over" : ratio >= 0.8 ? "warn" : "ok";
+
+    const row = document.createElement("div"); row.className = "cb-row";
+    const top = document.createElement("div"); top.className = "cb-top";
+    const name = document.createElement("span"); name.textContent = emojiFor(b.category) + " " + b.category;
+    const nums = document.createElement("span"); nums.className = "sp"; nums.textContent = `${money(sp)} of ${money(b.amount)}`;
+    const del = document.createElement("button"); del.className = "cb-del"; del.type = "button";
+    del.textContent = "\u00D7"; del.title = "Remove this budget";
+    del.onclick = () => saveCatBudget(b.category, 0);
+    top.append(name, nums, del);
+
+    const bar = document.createElement("div"); bar.className = "cb-bar";
+    const fill = document.createElement("div"); fill.className = "cb-fill";
+    fill.style.width = Math.min(ratio * 100, 100) + "%";
+    fill.style.background = STATE_UI[st].bar;
+    bar.append(fill);
+
+    const status = document.createElement("div"); status.className = "cb-status";
+    if (st === "over") { status.textContent = `${money(sp - b.amount)} over budget \u{1F62C}`; status.style.color = "#d9485f"; over.push(`${b.category} (+${money(sp - b.amount)})`); }
+    else if (st === "warn") status.textContent = `Almost at the limit, ${money(b.amount - sp)} left \u{1F440}`;
+    else status.textContent = `${money(b.amount - sp)} left`;
+
+    row.append(top, bar, status); box.append(row);
+  });
+  $("cbAlert").textContent = over.length ? "Over budget: " + over.join(", ") : "";
+}
+
+async function saveCatBudget(category, amount) {
+  const key = `${year}-${pad(month + 1)}`;
+  const res = await fetch("/category-budgets", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ month: key, category, amount })
+  });
+  if (!res.ok) { $("cbMsg").textContent = "Could not save this budget. Check the category and amount."; return false; }
+  $("cbMsg").textContent = "";
+  load();
+  return true;
+}
+
+$("cbForm").onsubmit = async ev => {
+  ev.preventDefault();
+  const category = $("cbCat").value.trim();
+  const amount = parseFloat($("cbAmt").value);
+  if (!category || !(amount >= 0)) { $("cbMsg").textContent = "Enter a category and a budget amount."; return; }
+  if (await saveCatBudget(category, amount)) { $("cbCat").value = ""; $("cbAmt").value = ""; }
 };
 
 $("importBtn").onclick = () => $("csvFile").click();

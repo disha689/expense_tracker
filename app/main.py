@@ -1,7 +1,7 @@
 import csv
 import io
 import math
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -15,9 +15,14 @@ from app.schemas import (
     MONTH_PATTERN,
     BudgetIn,
     BudgetOut,
+    CategoryBudgetIn,
+    CategoryBudgetsOut,
     ExpenseCreate,
     ExpenseOut,
     ExpenseUpdate,
+    RecurringCreate,
+    RecurringCreatedOut,
+    RecurringOut,
 )
 
 app = FastAPI(title="Expense Tracker API")
@@ -122,6 +127,58 @@ def save_budget(payload: BudgetIn, conn=Depends(get_db)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"month": payload.month, "amount": payload.amount}
+
+
+# ---------- Category budgets (saved per month, carry forward) ----------
+@app.get("/category-budgets", response_model=CategoryBudgetsOut)
+def read_category_budgets(month: str = Query(pattern=MONTH_PATTERN), conn=Depends(get_db)):
+    rows = crud.get_category_budgets(conn, month)
+    return {"month": month, "budgets": [{"category": c, "amount": a} for c, a in rows]}
+
+
+@app.put("/category-budgets", response_model=CategoryBudgetsOut)
+def save_category_budget(payload: CategoryBudgetIn, conn=Depends(get_db)):
+    try:
+        crud.set_category_budget(conn, payload.month, payload.category, payload.amount)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    rows = crud.get_category_budgets(conn, payload.month)
+    return {"month": payload.month, "budgets": [{"category": c, "amount": a} for c, a in rows]}
+
+
+# ---------- Recurring expenses ----------
+def recurring_to_dict(r):
+    return {"id": r[0], "amount": r[1], "category": r[2], "note": r[3] or "", "day": r[4], "start_month": r[5]}
+
+
+@app.get("/recurring", response_model=list[RecurringOut])
+def read_recurring(conn=Depends(get_db)):
+    return [recurring_to_dict(r) for r in crud.list_recurring(conn)]
+
+
+@app.post("/recurring", response_model=RecurringCreatedOut, status_code=201)
+def create_recurring(payload: RecurringCreate, conn=Depends(get_db)):
+    start = payload.start_month or date.today().strftime("%Y-%m")
+    try:
+        new_id = crud.create_recurring(
+            conn, payload.amount, payload.category, payload.note, payload.day, start
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    created = crud.apply_recurring(conn)
+    return {**recurring_to_dict(crud.get_recurring(conn, new_id)), "created": created}
+
+
+@app.post("/recurring/apply")
+def run_recurring(conn=Depends(get_db)):
+    return {"created": crud.apply_recurring(conn)}
+
+
+@app.delete("/recurring/{recurring_id}")
+def remove_recurring(recurring_id: int, conn=Depends(get_db)):
+    if not crud.delete_recurring(conn, recurring_id):
+        raise HTTPException(status_code=404, detail="Recurring expense not found")
+    return {"detail": "Stopped. Past expenses were kept."}
 
 
 # ---------- CSV export / import ----------
