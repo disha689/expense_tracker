@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import crud
+from app.security import install_security
 from app.database import get_conn
 from app.schemas import (
     MONTH_PATTERN,
@@ -26,6 +27,8 @@ from app.schemas import (
 )
 
 app = FastAPI(title="Expense Tracker API")
+
+install_security(app)
 
 STATIC_DIR = Path(__file__).parent / "static"
 INDEX = STATIC_DIR / "index.html"
