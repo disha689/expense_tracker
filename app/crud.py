@@ -2,22 +2,24 @@ import calendar
 from datetime import date
 
 
-def add_expense(conn, amount, category, note="", date_str=None):
+def add_expense(conn, amount, category, note="", date_str=None, commit=True):
     if amount <= 0:
         raise ValueError("Amount must be greater than 0")
-    with conn:
-        cur = conn.execute(
-            "INSERT INTO expenses (amount, category, note, date) VALUES (?, ?, ?, ?)",
-            (amount, category, note, date_str or str(date.today())),
-        )
-    return cur.lastrowid
+    cur = conn.execute(
+        "INSERT INTO expenses (amount, category, note, date) VALUES (?, ?, ?, ?) RETURNING id",
+        (amount, category, note, date_str or str(date.today())),
+    )
+    new_id = cur.fetchone()[0]
+    if commit:
+        conn.commit()
+    return new_id
 
 
 def list_expenses(conn, month=None):
     query = "SELECT id, date, category, amount, note FROM expenses"
     params = []
     if month:
-        query += " WHERE strftime('%Y-%m', date) = ?"
+        query += " WHERE substr(date, 1, 7) = ?"
         params.append(month)
     query += " ORDER BY date DESC, id DESC"
     return conn.execute(query, params).fetchall()
@@ -27,7 +29,7 @@ def summary(conn, month=None):
     query = "SELECT category, SUM(amount) FROM expenses"
     params = []
     if month:
-        query += " WHERE strftime('%Y-%m', date) = ?"
+        query += " WHERE substr(date, 1, 7) = ?"
         params.append(month)
     query += " GROUP BY category ORDER BY 2 DESC"
     return conn.execute(query, params).fetchall()
@@ -143,10 +145,11 @@ def create_recurring(conn, amount, category, note, day, start_month, today=None)
         raise ValueError("Start month is too far back (max 10 years)")
     with conn:
         cur = conn.execute(
-            "INSERT INTO recurring (amount, category, note, day, start_month) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO recurring (amount, category, note, day, start_month) VALUES (?, ?, ?, ?, ?) RETURNING id",
             (amount, category, note or "", day, start_month),
         )
-    return cur.lastrowid
+        new_id = cur.fetchone()[0]
+    return new_id
 
 
 def list_recurring(conn):

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from app import auth
 
 COOKIE = "session"
-OPEN_PATHS = {"/login", "/api/login"}
+OPEN_PATHS = {"/login", "/api/login", "/healthz"}
 LOGIN_PAGE = Path(__file__).parent / "static" / "login.html"
 
 
@@ -54,6 +54,10 @@ def install_security(app: FastAPI):
         if wants_page:
             return _harden(RedirectResponse("/login", status_code=303))
         return _harden(JSONResponse({"detail": "Not logged in"}, status_code=401))
+
+    @app.get("/healthz", include_in_schema=False)
+    def healthz():
+        return {"status": "ok"}
 
     @app.get("/login", include_in_schema=False)
     def login_page(request: Request):

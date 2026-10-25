@@ -10,6 +10,8 @@ ITERATIONS = 600_000
 SESSION_SECONDS = 30 * 24 * 3600  # stay logged in for 30 days
 MAX_FAILS = 5
 FAIL_WINDOW = 15 * 60  # seconds
+GLOBAL_KEY = "*"
+GLOBAL_MAX_FAILS = 20  # all addresses together
 FAILS = {}  # ip -> list of failure timestamps
 
 
@@ -94,12 +96,17 @@ def _recent_failures(ip, now):
 
 
 def too_many_attempts(ip, now=None):
-    return len(_recent_failures(ip, time.time() if now is None else now)) >= MAX_FAILS
+    now = time.time() if now is None else now
+    return (
+        len(_recent_failures(ip, now)) >= MAX_FAILS
+        or len(_recent_failures(GLOBAL_KEY, now)) >= GLOBAL_MAX_FAILS
+    )
 
 
 def record_failure(ip, now=None):
     now = time.time() if now is None else now
     _recent_failures(ip, now).append(now)
+    _recent_failures(GLOBAL_KEY, now).append(now)
 
 
 def clear_failures(ip):

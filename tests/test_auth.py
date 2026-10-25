@@ -207,3 +207,14 @@ def test_load_env_reads_file_and_keeps_existing_values(tmp_path, monkeypatch):
     assert os.environ["EXISTING_TEST"] == "already"
     monkeypatch.delenv("FOO_TEST", raising=False)
     monkeypatch.delenv("BAR_TEST", raising=False)
+
+
+def test_health_check_is_open_and_tiny(client):
+    r = client.get("/healthz")
+    assert r.status_code == 200 and r.json() == {"status": "ok"}
+
+
+def test_global_cap_stops_guessing_from_many_addresses(client):
+    for i in range(auth.GLOBAL_MAX_FAILS):
+        auth.record_failure(f"198.51.100.{i}")
+    assert login(client).status_code == 429  # even the right password waits

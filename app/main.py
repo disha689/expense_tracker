@@ -27,14 +27,13 @@ from app.schemas import (
 )
 
 app = FastAPI(title="Expense Tracker API")
-
 install_security(app)
 
 STATIC_DIR = Path(__file__).parent / "static"
 INDEX = STATIC_DIR / "index.html"
 
 MAX_IMPORT_BYTES = 1_000_000
-MAX_IMPORT_ROWS = 5000
+MAX_IMPORT_ROWS = 2000
 FORMULA_CHARS = ("=", "+", "-", "@")
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -250,7 +249,7 @@ async def import_csv(request: Request, conn=Depends(get_db)):
             date_str = (r.get("date") or "").strip() or None
             if date_str:
                 datetime.strptime(date_str, "%Y-%m-%d")
-            crud.add_expense(conn, amount, category, note, date_str)
+            crud.add_expense(conn, amount, category, note, date_str, commit=False)
             imported += 1
         except ValueError as e:
             reason = str(e)
@@ -258,4 +257,5 @@ async def import_csv(request: Request, conn=Depends(get_db)):
                 reason = "Invalid amount" if "float" in reason else "Date must be YYYY-MM-DD"
             skipped.append({"row": line_no, "reason": reason})
 
+    conn.commit()  # everything is saved together, in one go
     return {"imported": imported, "skipped_count": len(skipped), "skipped": skipped[:20]}
