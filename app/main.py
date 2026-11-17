@@ -38,10 +38,20 @@ FORMULA_CHARS = ("=", "+", "-", "@")
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+# Old rows are tidied once per server start (on the first request that opens a database).
+_categories_tidied = False
+
 
 def get_db():
+    global _categories_tidied
     conn = get_conn()
     try:
+        if not _categories_tidied:
+            _categories_tidied = True
+            try:
+                crud.normalize_existing_categories(conn)
+            except Exception:
+                pass  # tidying must never break a request
         yield conn
     finally:
         conn.close()
@@ -59,13 +69,16 @@ def home():
 # ---------- Expenses ----------
 @app.post("/expenses", response_model=ExpenseOut, status_code=201)
 def create_expense(payload: ExpenseCreate, conn=Depends(get_db)):
-    new_id = crud.add_expense(
-        conn,
-        payload.amount,
-        payload.category,
-        payload.note,
-        str(payload.date) if payload.date else None,
-    )
+    try:
+        new_id = crud.add_expense(
+            conn,
+            payload.amount,
+            payload.category,
+            payload.note,
+            str(payload.date) if payload.date else None,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return row_to_dict(crud.get_expense(conn, new_id))
 
 
@@ -209,7 +222,7 @@ def export_csv(
         writer.writerow([r[1], safe_cell(r[2]), r[3], safe_cell(r[4])])
     filename = f"expenses-{month or 'all'}.csv"
     return Response(
-        "\ufeff" + out.getvalue(),  # BOM so Excel shows symbols like the rupee sign correctly
+        "﻿" + out.getvalue(),  # BOM so Excel shows symbols like the rupee sign correctly
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
@@ -242,7 +255,7 @@ async def import_csv(request: Request, conn=Depends(get_db)):
             amount = float((r.get("amount") or "").replace(",", "").strip())
             if not math.isfinite(amount):
                 raise ValueError("Invalid amount")
-            category = unsafe_cell(r.get("category"))
+            category = crud.normalize_category(unsafe_cell(r.get("category")))
             if not category or len(category) > 100:
                 raise ValueError("Category is missing or too long")
             note = unsafe_cell(r.get("note"))[:500]
