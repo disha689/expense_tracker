@@ -72,6 +72,16 @@ POSTGRES_SCHEMA = [
 ]
 
 _pg_ready = set()  # connection strings whose tables were already checked in this run
+_tidied = set()  # databases whose old category names were already tidied in this run
+
+
+def _tidy_categories_once(conn, key):
+    if key in _tidied:
+        return
+    from app import crud  # imported here to avoid a circular import
+
+    crud.normalize_existing_categories(conn)
+    _tidied.add(key)
 
 
 def database_url():
@@ -155,9 +165,12 @@ def get_conn(db_path=None):
             raise RuntimeError("DATABASE_URL must start with postgresql:// (check the value you pasted).")
         conn = connect_postgres(url)
         ensure_postgres_schema(conn, url)
+        _tidy_categories_once(conn, url)
         return conn
 
     conn = sqlite3.connect(db_path or DB_PATH, check_same_thread=False)
     for statement in SQLITE_SCHEMA:
         conn.execute(statement)
+    if db_path != ":memory:":
+        _tidy_categories_once(conn, db_path or DB_PATH)
     return conn

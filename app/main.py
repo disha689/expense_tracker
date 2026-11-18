@@ -38,20 +38,10 @@ FORMULA_CHARS = ("=", "+", "-", "@")
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# Old rows are tidied once per server start (on the first request that opens a database).
-_categories_tidied = False
-
 
 def get_db():
-    global _categories_tidied
     conn = get_conn()
     try:
-        if not _categories_tidied:
-            _categories_tidied = True
-            try:
-                crud.normalize_existing_categories(conn)
-            except Exception:
-                pass  # tidying must never break a request
         yield conn
     finally:
         conn.close()
@@ -222,7 +212,7 @@ def export_csv(
         writer.writerow([r[1], safe_cell(r[2]), r[3], safe_cell(r[4])])
     filename = f"expenses-{month or 'all'}.csv"
     return Response(
-        "﻿" + out.getvalue(),  # BOM so Excel shows symbols like the rupee sign correctly
+        "\ufeff" + out.getvalue(),  # BOM so Excel shows symbols like the rupee sign correctly
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
@@ -255,7 +245,7 @@ async def import_csv(request: Request, conn=Depends(get_db)):
             amount = float((r.get("amount") or "").replace(",", "").strip())
             if not math.isfinite(amount):
                 raise ValueError("Invalid amount")
-            category = crud.normalize_category(unsafe_cell(r.get("category")))
+            category = unsafe_cell(r.get("category"))
             if not category or len(category) > 100:
                 raise ValueError("Category is missing or too long")
             note = unsafe_cell(r.get("note"))[:500]
