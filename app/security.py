@@ -3,10 +3,10 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 
-from app import auth
+from app import auth, pwa
 
 COOKIE = "session"
 OPEN_PATHS = {"/login", "/api/login", "/healthz"}
@@ -40,7 +40,7 @@ def install_security(app: FastAPI):
         path = request.url.path
         if request.method not in ("GET", "HEAD", "OPTIONS") and not _same_origin(request):
             return _harden(JSONResponse({"detail": "Cross-site request blocked"}, status_code=403))
-        if auth.auth_disabled() or path in OPEN_PATHS:
+        if auth.auth_disabled() or path in OPEN_PATHS or pwa.is_public(path):
             return _harden(await call_next(request))
         if not auth.is_configured():
             return _harden(Response(
@@ -68,7 +68,7 @@ def install_security(app: FastAPI):
         )
         if logged_in:
             return RedirectResponse("/", status_code=303)
-        return FileResponse(LOGIN_PAGE)
+        return HTMLResponse(pwa.add_app_tags(LOGIN_PAGE.read_text(encoding="utf-8")))
 
     @app.post("/api/login", include_in_schema=False)
     def login(payload: LoginIn, request: Request):
